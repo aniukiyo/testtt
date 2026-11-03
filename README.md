@@ -1,1 +1,92 @@
-STM32G474RE 四段式 PWM 智慧漸進調光與睡眠監控系統本專案基於 STM32CubeIDE / CubeMX 與 NUCLEO-G474RE 開發板，實作了一套結合硬體外部中斷、PWM 調光、定時器計時與 UART 命令列互動（CLI）的智慧燈光與睡眠管理系統。📋 專案功能特色四段式循環 PWM 調光：透過硬體 TIM3 Channel 1（1kHz PWM 頻率）精準控制 LED 亮度。按下實體按鈕可循環切換 4 種燈光狀態：最亮 (100%) $\rightarrow$ 中等 (60%) $\rightarrow$ 微亮 (20%) $\rightarrow$ 熄滅 (0%)。智慧起床事件偵測與消抖：透過 PC8 外部中斷（EXTI8） 監控按鈕動作，並內建 300ms 軟體時間戳消抖機制，防止硬體彈跳造成誤判。每當切換至最亮狀態（深夜開燈）時，系統自動累加一次起床次數 (wake_up_count)。睡眠時間統計：透過 TIM2 內部定時器中斷 背景累加睡眠秒數 (sleep_seconds)。USART2 序列埠互動介面 (CLI)：支援 115200 鮑率，可透過電腦端終端機（如 Tera Term、PuTTY）與系統即時互動。📌 硬體腳位配置表 (NUCLEO-G474RE)腳位週邊與模式功能描述PC6TIM3_CH1 (PWM 輸出)輸出 1kHz PWM 訊號進行精準控光PC8GPIO_EXTI8 (外部中斷)按鈕輸入（上升沿觸發，開啟內建上拉電阻）PA2USART2_TX虛擬序列埠 (Virtual COM Port) 傳送資料至電腦PA3USART2_RX虛擬序列埠接收電腦端 Terminal 的 CLI 指令PA5GPIO_Output板載綠色 LED (LD2)，作為系統運行與按鈕觸發指示—TIM2 (Timer Base)內部定時器中斷，用於計算睡眠秒數⚙️ STM32CubeMX 設定步驟Clock Configuration：系統時脈（HCLK）設定為 170 MHz。TIM3：Channel 1 設為 PWM Generation CH1（對應 PC6）。Prescaler (PSC) = 169, Counter Period (ARR) = 999（PWM 頻率 = 1kHz）。GPIO 設定：PC8：設為 GPIO_EXTI8，開啟 Pull-up，觸發邊沿設為 Rising Edge。PA5：設為 GPIO_Output（預設 Low）。USART2 設定：Mode: AsynchronousBaud Rate: 115200 Bits/s, 8 Data Bits, None Parity, 1 Stop Bit。在 NVIC 啟用 USART2 global interrupt。TIM2 設定：啟用內部時脈，設定適當的 Prescaler 與 Counter Period 產生 1 秒中斷基準。在 NVIC 啟用 TIM2 global interrupt。💻 序列埠指令 (CLI) 互動說明將開發板透過 USB 連接至電腦，打開序列埠終端機（鮑率設為 115200），即可輸入以下指令：指令說明回應範例report查詢目前的累積睡眠秒數與起床次數`[REPORT] Sleep Time: 120 secondsnew重置目前的睡眠秒數與起床次數紀錄[NEW] Records have been reset for a new session.🕹️ 按鈕操作邏輯按下實體按鈕（PC8），燈光亮度將依序循環切換：按第 1 下：100%（最亮） $\rightarrow$ 觸發「起床事件」，wake_up_count +1按第 2 下：60%（中等）按第 3 下：20%（微亮柔光）按第 4 下：0%（熄滅 / 就寢狀態）
+這是一份為您量身打造的 **README.md** 專案說明文件，您可以直接複製並貼到您的專案根目錄中。內容包含了專案架構、硬體腳位對應、功能特色、操作說明以及序列埠指令說明。
+
+---
+
+# STM32G474RE 四段式 PWM 智慧漸進調光與睡眠監控系統
+
+本專案基於 **STM32CubeIDE / CubeMX** 與 **NUCLEO-G474RE** 開發板，實作了一套結合硬體外部中斷、PWM 調光、定時器計時與 UART 命令列互動（CLI）的智慧燈光與睡眠管理系統。
+
+---
+
+## 📋 專案功能特色
+
+1. **四段式循環 PWM 調光**：
+* 透過硬體 **TIM3 Channel 1**（1kHz PWM 頻率）精準控制 LED 亮度。
+* 按下實體按鈕可循環切換 4 種燈光狀態：**最亮 (100%) $\rightarrow$ 中等 (60%) $\rightarrow$ 微亮 (20%) $\rightarrow$ 熄滅 (0%)**。
+
+
+2. **智慧起床事件偵測與消抖**：
+* 透過 **PC8 外部中斷（EXTI8）** 監控按鈕動作，並內建 **300ms 軟體時間戳消抖機制**，防止硬體彈跳造成誤判。
+* 每當切換至最亮狀態（深夜開燈）時，系統自動累加一次起床次數 (`wake_up_count`)。
+
+
+3. **睡眠時間統計**：
+* 透過 **TIM2 內部定時器中斷** 背景累加睡眠秒數 (`sleep_seconds`)。
+
+
+4. **USART2 序列埠互動介面 (CLI)**：
+* 支援 115200 鮑率，可透過電腦端終端機（如 Tera Term、PuTTY）與系統即時互動。
+
+
+
+---
+
+## 📌 硬體腳位配置表 (NUCLEO-G474RE)
+
+| 腳位 | 週邊與模式 | 功能描述 |
+| --- | --- | --- |
+| **PC6** | `TIM3_CH1` (PWM 輸出) | 輸出 1kHz PWM 訊號進行精準控光 |
+| **PC8** | `GPIO_EXTI8` (外部中斷) | 按鈕輸入（上升沿觸發，開啟內建上拉電阻） |
+| **PA2** | `USART2_TX` | 虛擬序列埠 (Virtual COM Port) 傳送資料至電腦 |
+| **PA3** | `USART2_RX` | 虛擬序列埠接收電腦端 Terminal 的 CLI 指令 |
+| **PA5** | `GPIO_Output` | 板載綠色 LED (LD2)，作為系統運行與按鈕觸發指示 |
+| — | `TIM2` (Timer Base) | 內部定時器中斷，用於計算睡眠秒數 |
+
+---
+
+## ⚙️ STM32CubeMX 設定步驟
+
+1. **Clock Configuration**：系統時脈（HCLK）設定為 **170 MHz**。
+2. **TIM3**：
+* Channel 1 設為 `PWM Generation CH1`（對應 PC6）。
+* `Prescaler` (PSC) = `169`, `Counter Period` (ARR) = `999`（PWM 頻率 = 1kHz）。
+
+
+3. **GPIO 設定**：
+* **PC8**：設為 `GPIO_EXTI8`，開啟 Pull-up，觸發邊沿設為 `Rising Edge`。
+* **PA5**：設為 `GPIO_Output`（預設 Low）。
+
+
+4. **USART2 設定**：
+* Mode: `Asynchronous`
+* Baud Rate: `115200 Bits/s`, 8 Data Bits, None Parity, 1 Stop Bit。
+* 在 **NVIC** 啟用 `USART2 global interrupt`。
+
+
+5. **TIM2 設定**：
+* 啟用內部時脈，設定適當的 Prescaler 與 Counter Period 產生 1 秒中斷基準。
+* 在 **NVIC** 啟用 `TIM2 global interrupt`。
+
+
+
+---
+
+## 💻 序列埠指令 (CLI) 互動說明
+
+將開發板透過 USB 連接至電腦，打開序列埠終端機（鮑率設為 `115200`），即可輸入以下指令：
+
+| 指令 | 說明 | 回應範例 |
+| --- | --- | --- |
+| **`report`** | 查詢目前的累積睡眠秒數與起床次數 | `[REPORT] Sleep Time: 120 seconds |
+| **`new`** | 重置目前的睡眠秒數與起床次數紀錄 | `[NEW] Records have been reset for a new session.` |
+
+---
+
+## 🕹️ 按鈕操作邏輯
+
+按下實體按鈕（PC8），燈光亮度將依序循環切換：
+
+* **按第 1 下**：**100%（最亮）** $\rightarrow$ 觸發「起床事件」，`wake_up_count` +1
+* **按第 2 下**：**60%（中等）**
+* **按第 3 下**：**20%（微亮柔光）**
+* **按第 4 下**：**0%（熄滅 / 就寢狀態）**
